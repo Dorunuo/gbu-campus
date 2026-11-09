@@ -73,3 +73,11 @@
 
 /* A route diagram must remain readable over objectives and moving facades. */
 .map-panel{background:rgba(10,29,35,.98)}
+#beacon-button[aria-pressed="true"]{color:#ffdf83;box-shadow:inset 0 -2px #ffcf55}
+#beacon-button:disabled{opacity:.4}
+@media(max-width:650px){
+  #beacon-button{width:44px;min-width:44px;height:44px;justify-content:center}
+  .beacon-button-label{display:none}
+  .utility-nav{gap:2px}
+  .utility-nav #quality-button{display:none}
+}

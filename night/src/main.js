@@ -5,6 +5,7 @@ import {createAudio} from './audio.js';
 import {CampusGame,clamp,distance,TITLES} from './game.js';
 import {DemoPlayer} from './demo.js';
 import {createZombieVisuals} from './zombie-visuals.js';
+import {createMemoryBeacons} from './memory-beacons.js';
 import {CAMPUS} from '../../shared/campus-layout.js';
 import './style.css';
 
@@ -40,9 +41,18 @@ for(const side of [-1,1]){
 const ring=new THREE.Mesh(new THREE.RingGeometry(.8,1.12,24),new THREE.MeshBasicMaterial({color:0x80babe,transparent:true,opacity:.26,depthWrite:false,side:THREE.DoubleSide}));ring.rotation.x=-Math.PI/2;ring.position.y=.045;ghostVisual.add(ring);
 const bellVisual=new THREE.Mesh(new THREE.OctahedronGeometry(.22),new THREE.MeshBasicMaterial({color:0xffce87}));scene.add(bellVisual);bellVisual.visible=false;
 const zombieVisuals=createZombieVisuals(scene,camera);
+const memoryBeacons=createMemoryBeacons(scene);
+let beaconsEnabled=false;
+const beaconButton=document.querySelector('#beacon-button');
+function toggleBeacons(){
+  if(mode!=='playing'||demo||mapOpen)return;
+  beaconsEnabled=!beaconsEnabled;
+  beaconButton.setAttribute('aria-pressed',String(beaconsEnabled));
+  game.say(beaconsEnabled?'G · Golden memory beacons on. Coordinates use game units.':'G · Golden memory beacons off.',3);
+}
 
 function clearInput(){key.clear();touch.x=0;touch.z=0;touch.interact=false;touch.run=false;drag=null;}
-function begin(isDemo=false,keep=false){if(!ready)return;audio.stopSession();audio.beginSession();clearInput();game.reset(keep);demo=isDemo?new DemoPlayer(game,{portrait:innerWidth/innerHeight<.8}):null;mode='playing';mapOpen=false;freeze=false;qualityWarmup=4;hemi.intensity=2.15;scene.background.set(0x172c3d);scene.fog.color.set(0x243b47);updateUI();}
+function begin(isDemo=false,keep=false){if(!ready)return;audio.stopSession();audio.beginSession();clearInput();game.reset(keep);beaconsEnabled=false;beaconButton.setAttribute('aria-pressed','false');demo=isDemo?new DemoPlayer(game,{portrait:innerWidth/innerHeight<.8}):null;mode='playing';mapOpen=false;freeze=false;qualityWarmup=4;hemi.intensity=2.15;scene.background.set(0x172c3d);scene.fog.color.set(0x243b47);updateUI();}
 function pause(){if(mode==='playing'){mapOpen=false;mode='paused';game.mode='paused';audio.setPaused(true);clearInput();updateUI();}else if(mode==='paused')resume();}
 function resume(){if(mode!=='paused')return;mode='playing';game.mode='playing';clearInput();updateUI();audio.beginSession();audio.setPaused(false);}
 function toggleMap(){if(mode!=='playing')return;mapOpen=!mapOpen;clearInput();accumulator=0;audio.setPaused(mapOpen);updateUI();}
@@ -51,7 +61,8 @@ const ui=createUI({start:()=>begin(false),demo:()=>begin(true),resume,retry:()=>
   toggleSound:()=>{sound=!sound;audio.setEnabled(sound);updateUI();},toggleQuality:()=>{quality=quality==='Smooth'?'Detail':'Smooth';renderScale=quality==='Smooth'?.8:1;resize();adaptClock=0;updateUI();},
   toggleMap,toggleTorch:()=>{if(!mapOpen)game?.toggleTorch();},decoy:()=>{if(!mapOpen)game?.ringBell();},kick:()=>{if(!mapOpen)game?.pressKick();},sprint:v=>{touch.run=!mapOpen&&v;},interact:(v)=>{if(v&&!touch.interact&&!mapOpen)game?.pressInteract();touch.interact=!mapOpen&&v;},note:n=>{if(!mapOpen)game?.note(n);},move:(x,z)=>{touch.x=mapOpen?0:x;touch.z=mapOpen?0:z;},look:(dx,dy)=>look(dx,dy),pause});
 function look(dx,dy){if(mode!=='playing'||mapOpen||demo||freeze)return;game.player.yaw-=dx*.0028;game.player.pitch=clamp(game.player.pitch-dy*.0028,-1.12,1.12);}
-const consumed=new Set(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','KeyE','KeyF','KeyQ','KeyM','Escape','Digit1','Digit2','Digit3']);
+beaconButton.addEventListener('click',toggleBeacons);
+const consumed=new Set(['KeyG','KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space','KeyE','KeyF','KeyQ','KeyM','Escape','Digit1','Digit2','Digit3']);
 addEventListener('keydown',e=>{
   if((e.code==='Space'||e.code==='Enter')&&e.target.closest?.('button,a,input,select,textarea'))return;
   if(consumed.has(e.code)&&mode!=='title')e.preventDefault();if(e.repeat){key.add(e.code);return;}
@@ -60,6 +71,7 @@ addEventListener('keydown',e=>{
   if(e.code==='KeyM'){toggleMap();return;}
   if(demo||mapOpen)return;
   key.add(e.code);if(e.code==='KeyF')game.toggleTorch();if(e.code==='KeyQ')game.ringBell();if(e.code==='KeyE')game.pressInteract();
+  if(e.code==='KeyG')toggleBeacons();
   if(e.code==='Space')game.pressKick();
   if(/^Digit[123]$/.test(e.code))game.note(Number(e.code.slice(-1)));
 });
@@ -79,9 +91,11 @@ for(const name of ['pointerup','pointercancel','lostpointercapture'])renderer.do
 function resize(){renderer.setPixelRatio(Math.min(devicePixelRatio,quality==='Detail'?1.25:renderScale));renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();}addEventListener('resize',resize);
 function input(){return {x:touch.x+(key.has('KeyD')||key.has('ArrowRight')?1:0)-(key.has('KeyA')||key.has('ArrowLeft')?1:0),z:touch.z+(key.has('KeyW')||key.has('ArrowUp')?1:0)-(key.has('KeyS')||key.has('ArrowDown')?1:0),run:touch.run||key.has('ShiftLeft')||key.has('ShiftRight'),interact:touch.interact||key.has('KeyE')};}
 function updateUI(){
-  const g=game;ui.update({ready,mode,demo:!!demo,title:'After the Last Bell',objective:g?.memories.length===4?'Return the memories to the plaza gate':'Recover four campus memories',hint:'M · Campus map. Follow the promenade, garden paths and rear arcade.',caption:demo?.caption||'',memories:CAMPUS.stations.map(s=>({id:s.id,title:s.title,done:g?.memories.includes(s.id)||false})),navigation:g?.navigation(),track:g?.track,focus:g?.focus||null,health:g?.health??100,biteFlash:g?.biteFlash??0,kickCooldown:g?.kickCooldown??0,chasers:g?.chasers??0,battery:g?.battery??100,fear:g?.fear??0,noise:g?.noise??0,torch:g?.torch??true,safe:g?.safe??false,time:g?.time??0,quality,sound,decoyCooldown:g?.decoyCooldown??0,mapOpen,player:g?.player||CAMPUS.spawn,ghost:{x:g?.ghost.x||0,z:g?.ghost.z||0,visible:g?.ghost.visible&&distance(g.player,g.ghost)<18},fps,message:g?.message||''});
+  const g=game;ui.update({ready,mode,demo:!!demo,title:'After the Last Bell',objective:g?.memories.length===4?'Return the memories to the plaza gate':'Recover four campus memories',hint:'M · Campus map. G · Golden memory beacons. Follow the paths.',caption:demo?.caption||'',memories:CAMPUS.stations.map(s=>({id:s.id,title:s.title,done:g?.memories.includes(s.id)||false})),navigation:g?.navigation(),track:g?.track,focus:g?.focus||null,health:g?.health??100,biteFlash:g?.biteFlash??0,kickCooldown:g?.kickCooldown??0,chasers:g?.chasers??0,battery:g?.battery??100,fear:g?.fear??0,noise:g?.noise??0,torch:g?.torch??true,safe:g?.safe??false,time:g?.time??0,quality,sound,decoyCooldown:g?.decoyCooldown??0,mapOpen,player:g?.player||CAMPUS.spawn,ghost:{x:g?.ghost.x||0,z:g?.ghost.z||0,visible:g?.ghost.visible&&distance(g.player,g.ghost)<18},fps,message:g?.message||''});
 }
 function updateView(dt){
+  memoryBeacons.update({enabled:beaconsEnabled,active:mode==='playing'&&!demo&&!mapOpen,memories:game?.memories||[]});
+  beaconButton.disabled=mode!=='playing'||!!demo||mapOpen;
   if(mode==='title'){
     camera.position.set(...(innerWidth<700?[150,165,300]:[127,88,160]));camera.lookAt(0,4,0);torch.visible=false;ghostVisual.visible=false;
   }else if(game){
@@ -100,7 +114,7 @@ function updateView(dt){
   }
 }
 const debug=new URLSearchParams(location.search).has('debug');
-function diagnostics(){return {state:{ready,mode,demo:!!demo,memories:game?.memories||[],focus:game?.focus,player:game?{...game.player}:null,ghost:game?{...game.ghost}:null,health:game?.health,biteFlash:game?.biteFlash,kickTime:game?.kickTime,kickImpact:game?.kickImpact,kickCooldown:game?.kickCooldown,chasers:game?.chasers,combat:game?{...game.combat}:null,zombies:game?.zombies.map(({id,x,z,yaw,mode,phase,downTime,clock})=>({id,x,z,yaw,mode,phase,downTime,clock})),visuals:zombieVisuals.diagnostics,audio:audio.diagnostics?.(),battery:game?.battery,fear:game?.fear,time:game?.time,progress:game?.progress,track:game?.track,navigation:game?.navigation(),world:world?.diagnostics,starArmed:game?.starArmed,noteClock:game?.noteClock,sequence:game?.sequence,steps:game?.steps,demoStep:demo?.i},renderer:{calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,pixelRatio:renderer.getPixelRatio(),width:renderer.domElement.width,height:renderer.domElement.height},performance:{fps,meanFrameMs:frameMetrics.mean,p95FrameMs:frameMetrics.p95,samples:frames.length},physics:{engine:'custom AABB',step:1/60,colliders:world?.colliders.length||0,sensors:6,ccdBodies:0},frame};}
+function diagnostics(){return {state:{ready,mode,demo:!!demo,memories:game?.memories||[],focus:game?.focus,player:game?{...game.player}:null,ghost:game?{...game.ghost}:null,health:game?.health,biteFlash:game?.biteFlash,kickTime:game?.kickTime,kickImpact:game?.kickImpact,kickCooldown:game?.kickCooldown,chasers:game?.chasers,combat:game?{...game.combat}:null,zombies:game?.zombies.map(({id,x,z,yaw,mode,phase,downTime,clock})=>({id,x,z,yaw,mode,phase,downTime,clock})),visuals:zombieVisuals.diagnostics,beacons:memoryBeacons.diagnostics(),audio:audio.diagnostics?.(),battery:game?.battery,fear:game?.fear,time:game?.time,progress:game?.progress,track:game?.track,navigation:game?.navigation(),world:world?.diagnostics,starArmed:game?.starArmed,noteClock:game?.noteClock,sequence:game?.sequence,steps:game?.steps,demoStep:demo?.i},renderer:{calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,geometries:renderer.info.memory.geometries,textures:renderer.info.memory.textures,pixelRatio:renderer.getPixelRatio(),width:renderer.domElement.width,height:renderer.domElement.height},performance:{fps,meanFrameMs:frameMetrics.mean,p95FrameMs:frameMetrics.p95,samples:frames.length},physics:{engine:'custom AABB',step:1/60,colliders:world?.colliders.length||0,sensors:6,ccdBodies:0},frame};}
 if(debug){
   Object.defineProperty(window,'__THREE_GAME_DIAGNOSTICS__',{get:diagnostics});
   window.__THREE_GAME_TEST_HOOKS__={seed:async()=>({seed:715}),getState:diagnostics,setReducedMotion:v=>{reducedMotion=v;},

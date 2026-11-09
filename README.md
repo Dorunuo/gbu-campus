@@ -42,6 +42,14 @@ The original development checkout uses a junction to local Three.js/Vite depende
 
 The Git repository includes `tour/`, `night/`, `shared/`, source assets, build/server tools and written evidence. Generated `dist/` and `release/`, dependencies, local `Old/` snapshots, screenshots, recordings and raw QA results are excluded. Evidence documents describe historical runs; their local capture paths are not included in this source repository.
 
+## Student change: optional golden memory beacons
+
+In **Haunted night**, start manual play, then press **G** or click **G · Beacons** in the header. Press/click again to hide them. Four static gold columns and name/coordinate labels identify the Water court, West teaching block, Sports hall and Dormitory arcade through buildings. Coordinates come directly from `CAMPUS.stations` in `shared/campus-layout.js`; they are gameplay X/Z units, not surveyed metres. These are the four memory locations, not the four running-track checkpoints.
+
+The overlay defaults to off on each new/retried game and is hidden during title, demo, map, pause and ending screens. Completed locations remain marked; their labels become green-tinted. It does not change collisions, missions, kick detection or the daytime tour. Implementation: `night/src/memory-beacons.js`, `night/src/main.js`, `night/index.html`.
+
+Known limits: markers behind the camera require turning to see; nearby or aligned labels can overlap; the aid deliberately reveals location through walls, not a walkable route. It is not a bloom/post-processing effect and adds no gameplay light source. Physical-phone usability and human visual acceptance remain to be checked. Original historical QA documents below are not evidence for this student revision. Rebuild after editing. See `tools/test-memory-beacons.mjs` for automated structural checks; these are not the student's personal observations.
+
 ## GitHub Pages hosting
 
 Production hosting is **GitHub Pages**, at https://greenquark.github.io/world/; night mode is at https://greenquark.github.io/world/night/.
