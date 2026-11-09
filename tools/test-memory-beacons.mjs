@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';
+import * as THREE from 'three';
+import {createMemoryBeacons} from '../night/src/memory-beacons.js';
+import {CAMPUS} from '../shared/campus-layout.js';
+const texts=[];
+globalThis.document={createElement(tag){assert.equal(tag,'canvas');return {width:0,height:0,getContext(){return {fillRect(){},strokeRect(){},fillText(text){texts.push(text);}};}};}};
+const scene=new THREE.Scene();
+const overlay=createMemoryBeacons(scene);
+assert.equal(overlay.diagnostics().visible,false);
+assert.deepEqual(overlay.diagnostics().markers,CAMPUS.stations.map(s=>({id:s.id,...s.position})));
+assert.equal(texts.length,8);
+for(const station of CAMPUS.stations)assert(texts.includes(`X ${station.position.x}  /  Z ${station.position.z} · game units`));
+let drawables=0;
+scene.traverse(object=>{if(object.isMesh||object.isSprite){drawables++;assert.equal(object.material.depthTest,false);assert.equal(object.material.depthWrite,false);assert.equal(object.material.fog,false);assert(object.renderOrder>=900);}});
+assert.equal(drawables,16);
+for(const [enabled,active,visible] of [[true,true,true],[false,true,false],[true,false,false]]){overlay.update({enabled,active});assert.equal(overlay.diagnostics().visible,visible);}
+overlay.update({enabled:true,active:true,memories:['library']});
+assert.equal(overlay.diagnostics().markers.length,4);
+overlay.dispose();assert.equal(scene.children.length,0);
+console.log('PASS: 4 shared-data locations; 8 label lines; 16 through-wall drawables; visibility gates; completed locations retained; disposal.');
+console.log('Scope: Node structural checks with mocked canvas, not real GPU rendering or student playtesting.');
